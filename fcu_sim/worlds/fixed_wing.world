@@ -1,7 +1,7 @@
 <sdf version='1.4'>
   <world name='default'>
 
-    
+
     <light name='sun' type='directional'>
       <cast_shadows>1</cast_shadows>
       <pose>0 0 10 0 -0 0</pose>
@@ -47,13 +47,13 @@
           <geometry>
             <plane>
               <normal>0 0 1</normal>
-              <size>10000 10000</size>
+              <size>3000 3000</size>
             </plane>
           </geometry>
           <material>
             <script>
               <uri>file://media/materials/scripts/gazebo.material</uri>
-              <name>Gazebo/Grey</name>
+              <name>Gazebo/Road</name>
             </script>
           </material>
         </visual>
