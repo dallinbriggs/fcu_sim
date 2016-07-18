@@ -145,6 +145,7 @@
     image_camera_info_topic="chase/camera_info">
     <origin xyz="-${20*body_length} 0 ${10*body_height}"/>
   </xacro:simple_camera>
+  
 
   <!-- Color -->
   <gazebo reference="${namespace}/base_link">
