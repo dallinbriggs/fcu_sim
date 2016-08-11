@@ -1,108 +1,97 @@
-<!-- This is a launch file that runs the bare minimum requirements to get -->
-<!-- gazebo running.  It requires a relative_nav::Command on /command -->
-<!-- to move the hex, and outputs imu, altimeter, laserscan and RGBD images -->
-<!-- as well as a relative_nav::FilterState message on /global_state  -->
-<!-- a geometry_msgs::StampedTransform on /mocap to imitate motion capture -->
-
-
 <launch>
-  <arg name="mav_name"            default="snowspeeder"/>
-  <arg name="enable_logging"      default="false" />
-  <arg name="enable_ground_truth" default="true" />
-  <arg name="log_file"            default="$(arg mav_name)" />
 
   <include file="$(find gazebo_ros)/launch/empty_world.launch">
-    <arg name="world_name" value="$(find fcu_sim)/worlds/fixed_wing.world"/> <!-- auvsi.world"/> -->
+    <arg name="world_name" value="$(find fcu_sim)/worlds/basic.world"/>
     <arg name="paused" value="true"/>
   </include>
 
+  <arg name="mav_name1"            default="snowspeeder"/>
+  <arg name="enable_logging"      default="false" />
+  <arg name="enable_ground_truth" default="true" />
+  <arg name="log_file"            default="$(arg mav_name1)" />
+
+  <group ns="rogue1">
   <!-- Spawn MAV -->
   <include file="$(find fcu_sim)/launch/spawn_mav.launch">
-    <arg name="mav_name"            value="$(arg mav_name)" />
-    <arg name="model"               value="$(find fcu_sim)/urdf/$(arg mav_name)/$(arg mav_name)_base.xacro" />
+    <arg name="mav_name"            value="$(arg mav_name1)" />
+    <arg name="model"               value="$(find fcu_sim)/urdf/$(arg mav_name1)/$(arg mav_name1)_base.xacro" />
     <arg name="enable_logging"      value="$(arg enable_logging)" />
     <arg name="enable_ground_truth" value="$(arg enable_ground_truth)" />
     <arg name="log_file"          value="$(arg log_file)"/>
   </include>
 
-  <!-- <arg name="mav_name2"            default="junker"/>
-  <arg name="enable_logging2"      default="false" />
-  <arg name="enable_ground_truth2" default="true" />
-  <arg name="log_file2"            default="$(arg mav_name2)" />
-
-  <include file="$(find fcu_sim)/launch/spawn_mav.launch">
-    <arg name="mav_name"            value="$(arg mav_name2)" />
-    <arg name="model"               value="$(find fcu_sim)/urdf/$(arg mav_name2)/$(arg mav_name2)_base.xacro" />
-    <arg name="enable_logging"      value="$(arg enable_logging2)" />
-    <arg name="enable_ground_truth" value="$(arg enable_ground_truth2)" />
-    <arg name="log_file"          value="$(arg log_file2)"/>
-    <arg name="x" default="10.0"/>
-    <arg name="y" default="0.0"/>
-    <arg name="z" default="10.0"/>
-  </include> -->
-<!--
-  <node name="joy" pkg="fcu_common" type="fcu_common_joy">
-    <param name="x_axis" value="0"/>
-    <param name="y_axis" value="1"/>
-    <param name="yaw_axis" value="4"/>
-    <param name="axis_thrust_" value="2"/>
-    <param name="y_sign" value="-1"/>
-    <param name="x_sign" value="1"/>
-  </node>
-
-  <node name="xbox" pkg="joy" type="joy_node">
-    <param name="dev" value="/dev/input/js0"/>
-  </node>
-  -->
-
   <node name="autopilot1" pkg="ros_plane" type="ros_plane_controller" >
     <!-- <remap from="command" to="autopilot_command"/> -->
-    <remap from="state" to="/snowspeeder/truth"/> <!--  -->
+    <remap from="state" to="truth"/> <!--  -->
+    <param name="PITCH_KD" value="-0.4"/>
   </node>
 
   <node name="estimator1" pkg="ros_plane" type="ros_plane_estimator" output="screen">
-    <remap from="/baro/data" to="/snowspeeder/baro/data"/>
-    <remap from="/imu/data" to="/snowspeeder/imu/data"/>
-    <remap from="/airspeed/data" to="/snowspeeder/airspeed/data"/>
+    <remap from="/baro/data" to="baro/data"/>
+    <remap from="/imu/data" to="imu/data"/>
+    <remap from="/airspeed/data" to="airspeed/data"/>
   </node>
 
   <node name="chase1" pkg="image_view" type="image_view">
-    <remap from="image" to="/snowspeeder/camera/chase/rgb"/>
+    <remap from="image" to="camera/chase/rgb"/>
   </node>
   <!-- Added Stuff Below-->
-<node name="path_manager1" pkg="ros_plane" type="ros_plane_path_manager" >
-  <remap from="state" to="/snowspeeder/truth"/>
-</node>
-<!-- Added Stuff Above-->
+  <node name="path_manager1" pkg="ros_plane" type="ros_plane_path_manager" >
+  <remap from="state" to="truth"/>
+  </node>
+  <!-- Added Stuff Above-->
   <!--<node name="reconfig" pkg="rqt_reconfigure" type="rqt_reconfigure"/> -->
 
-<node name="path_follower1" pkg="ros_plane" type="ros_plane_follower" >
-  <remap from="state" to="/snowspeeder/truth"/>
-</node>
+  <node name="path_follower1" pkg="ros_plane" type="ros_plane_follower" >
+  <remap from="state" to="truth"/>
+  </node>
 
-<!-- <node name="autopilot2" pkg="ros_plane" type="ros_plane_controller" > -->
-  <!-- <remap from="command" to="autopilot_command"/> -->
-  <!-- <remap from="state" to="/junker/truth"/>
-</node> -->
+  </group>
 
-<!-- <node name="estimator2" pkg="ros_plane" type="ros_plane_estimator" output="screen">
-  <remap from="/baro/data" to="/junker/baro/data"/>
-  <remap from="/imu/data" to="/junker/imu/data"/>
-  <remap from="/airspeed/data" to="/junker/airspeed/data"/>
-</node>
+<arg name="mav_name2"            default="Millennium_Falcon"/>
+<arg name="log_file2"            default="$(arg mav_name2)" />
 
-<node name="chase2" pkg="image_view" type="image_view">
-  <remap from="image" to="/junker/camera/chase/rgb"/>
-</node> -->
-<!-- Added Stuff Below-->
-<!-- <node name="path_manager2" pkg="ros_plane" type="ros_plane_path_manager" >
-<remap from="state" to="/junker/truth"/>
-</node> -->
-<!-- Added Stuff Above-->
-<!--<node name="reconfig" pkg="rqt_reconfigure" type="rqt_reconfigure"/> -->
+<group ns="goldleader">
+  <include file="$(find fcu_sim)/launch/spawn_mav.launch">
+    <arg name="mav_name"            value="$(arg mav_name2)" />
+    <arg name="model"               value="$(find fcu_sim)/urdf/$(arg mav_name2)/$(arg mav_name2)_base.xacro" />
+    <arg name="enable_logging"      value="$(arg enable_logging)" />
+    <arg name="enable_ground_truth" value="$(arg enable_ground_truth)" />
+    <arg name="log_file"          value="$(arg log_file2)"/>
+    <arg name="x" default="1500.0"/>
+    <arg name="y" default="-400.0"/>
+    <arg name="yaw" default="3.1459"/>
+    <arg name="z" default="20.0"/>
+  </include>
 
-<!-- <node name="path_follower2" pkg="ros_plane" type="ros_plane_follower" >
-<remap from="state" to="/junker/truth"/>
-</node> -->
+  <node name="autopilot2" pkg="ros_plane" type="ros_plane_controller" >
+    <!-- <remap from="command" to="autopilot_command"/> -->
+    <remap from="state" to="truth"/> <!--  -->
+    <param name="PITCH_KD" value="-0.4"/>
+  </node>
+
+  <node name="estimator2" pkg="ros_plane" type="ros_plane_estimator" output="screen">
+    <remap from="/baro/data" to="baro/data"/>
+    <remap from="/imu/data" to="imu/data"/>
+    <remap from="/airspeed/data" to="airspeed/data"/>
+  </node>
+
+  <node name="chase2" pkg="image_view" type="image_view">
+    <remap from="image" to="camera/chase/rgb"/>
+  </node>
+  <!-- Added Stuff Below-->
+  <node name="path_manager2" pkg="ros_plane" type="ros_plane_path_manager" >
+  <remap from="state" to="truth"/>
+  </node>
+  <!-- Added Stuff Above-->
+  <!--<node name="reconfig" pkg="rqt_reconfigure" type="rqt_reconfigure"/> -->
+
+  <node name="path_follower2" pkg="ros_plane" type="ros_plane_follower" >
+  <remap from="state" to="truth"/>
+  </node>
+
+</group>
+
+
 
 </launch>

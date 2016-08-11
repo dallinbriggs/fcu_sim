@@ -75,6 +75,8 @@ class GazeboAircraftForcesAndMoments : public ModelPlugin {
   physics::EntityPtr parent_link_;
   event::ConnectionPtr updateConnection_; // Pointer to the update event connection.
 
+  double start_time;
+
   // physical parameters
   double mass_;
   double Jx_;

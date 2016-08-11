@@ -34,6 +34,7 @@ GazeboAircraftForcesAndMoments::~GazeboAircraftForcesAndMoments()
     node_handle_->shutdown();
     delete node_handle_;
   }
+
 }
 
 
@@ -163,22 +164,37 @@ void GazeboAircraftForcesAndMoments::Load(physics::ModelPtr _model, sdf::Element
   getSdfParam<double>(_sdf, "C_Y_delta_e", CY_.delta_e, 0.0);
   getSdfParam<double>(_sdf, "C_Y_delta_r", CY_.delta_r, -0.017);
 
-
+  // initailize class variables
+  math::Vector3 initvec(0, 0, 0);
+  link_ ->SetAngularVel(initvec);
+  link_ ->SetAngularAccel(initvec);
+  link_ ->SetLinearVel(initvec);
+  link_ ->SetLinearAccel(initvec);
+  link_ ->SetCollideMode("none");
+  math::Vector3 C_angular_velocity_W_C = link_->GetRelativeAngularVel();
+  math::Vector3 C_linear_velocity_W_C = link_->GetRelativeLinearVel();
   // Connect the update function to the simulation
   updateConnection_ = event::Events::ConnectWorldUpdateBegin(boost::bind(&GazeboAircraftForcesAndMoments::OnUpdate, this, _1));
 
   // Connect Subscribers
   command_sub_ = node_handle_->subscribe(command_topic_, 1, &GazeboAircraftForcesAndMoments::CommandCallback, this);
   wind_speed_sub_ = node_handle_->subscribe(wind_speed_topic_, 1, &GazeboAircraftForcesAndMoments::WindSpeedCallback, this);
+
+  start_time = ros::Time::now().toSec();
+
+
 }
 
 // This gets called by the world update event.
 void GazeboAircraftForcesAndMoments::OnUpdate(const common::UpdateInfo& _info) {
-
+  if (ros::Time::now().toSec() - start_time > .05)
+  {
   sampling_time_ = _info.simTime.Double() - prev_sim_time_;
   prev_sim_time_ = _info.simTime.Double();
   UpdateForcesAndMoments();
   SendForces();
+  }
+  else return;
 }
 
 void GazeboAircraftForcesAndMoments::WindSpeedCallback(const geometry_msgs::Vector3 &wind){
@@ -201,10 +217,14 @@ void GazeboAircraftForcesAndMoments::UpdateForcesAndMoments()
   /* Get state information from Gazebo                          *
    * C denotes child frame, P parent frame, and W world frame.  *
    * Further C_pose_W_P denotes pose of P wrt. W expressed in C.*/
+
+
+
   math::Pose W_pose_W_C = link_->GetWorldCoGPose();
   double pn = W_pose_W_C.pos.x; // We should check to make sure that this is right
   double pe = -W_pose_W_C.pos.y;
   double pd = -W_pose_W_C.pos.z;
+//  gzmsg << "pos x y z " << pn << " " << pe << " " << pd << "\n";
   math::Vector3 euler_angles = W_pose_W_C.rot.GetAsEuler();
   double phi = euler_angles.x;
   double theta = -euler_angles.y;
@@ -217,11 +237,34 @@ void GazeboAircraftForcesAndMoments::UpdateForcesAndMoments()
   double p = C_angular_velocity_W_C.x;
   double q = -C_angular_velocity_W_C.y;
   double r = -C_angular_velocity_W_C.z;
+  if (math::isnan(p) || math::isnan(q) || math::isnan(r) || math::isnan(u) || math::isnan(v) || math::isnan(w))
+  {
+    gzerr << "NAN!!!!!!!!!!!!!!!!!!!";
+    math::Vector3 initvec(0, 0, 0);
+    link_ ->SetAngularVel(initvec);
+    link_ ->SetAngularAccel(initvec);
+    link_ ->SetLinearVel(initvec);
+    link_ ->SetLinearAccel(initvec);
+    link_ ->SetCollideMode("none");
+    math::Vector3 C_angular_velocity_W_C = link_->GetRelativeAngularVel();
+    math::Vector3 C_linear_velocity_W_C = link_->GetRelativeLinearVel();
+    double p = C_angular_velocity_W_C.x;
+    double q = -C_angular_velocity_W_C.y;
+    double r = -C_angular_velocity_W_C.z;
+    double u = C_linear_velocity_W_C.x;
+    double v = -C_linear_velocity_W_C.y;
+    double w = -C_linear_velocity_W_C.z;
+  }
+//  gzmsg << "p q r" << p << " " << q << " " << r << "\n";
 
   // wind info is available in the wind_ struct
   double ur = u - wind_.N;
   double vr = v - wind_.E;
   double wr = w - wind_.D;
+//  gzmsg << "u, v, w: " << u << " " << v << " " << w << "\n";
+//  gzmsg << "wind N, E, D: " << wind_.N << " " << wind_.E << " " << wind_.D << "\n";
+//  gzmsg << "ur, vr, wr: " << ur << " " << vr << " " << wr << "\n";
+
 
   double Va = sqrt(pow(ur,2.0) + pow(vr,2.0) + pow(wr,2.0));
   double alpha = atan2(wr , ur);
@@ -256,14 +299,40 @@ void GazeboAircraftForcesAndMoments::UpdateForcesAndMoments()
     forces_.l = 0.0;
     forces_.m = 0.0;
     forces_.n = 0.0;
+//    gzmsg << "Forces Fx, Fy, Fz: " << forces_.Fx << " " << forces_.Fy << " " << forces_.Fz << "\n";
+//    gzmsg << "Va: " << Va << "\n";
   }else{
     forces_.Fx = 0.5*(rho_)*pow(Va,2.0)*wing_.S*(CX_a + (CX_q_a*wing_.c*q)/(2.0*Va) + CX_deltaE_a * delta_.e) + 0.5*rho_*prop_.S*prop_.C*(pow((prop_.k_motor*delta_.t),2.0) - pow(Va,2.0));
+    if (std::isfinite(forces_.Fx))
+    {
+    }
+    else
+    {
+      forces_.Fx = 0.01;
+    }
     forces_.Fy = 0.5*(rho_)*pow(Va,2.0)*wing_.S*(CY_.O + CY_.beta*beta + ((CY_.p*wing_.b*p)/(2.0*Va)) + ((CY_.r*wing_.b*r)/(2.0*Va)) + CY_.delta_a*delta_.a + CY_.delta_r*delta_.r);
+    if (std::isfinite(forces_.Fy))
+    {
+    }
+    else
+    {
+      forces_.Fy = 0.01;
+    }
     forces_.Fz = 0.5*(rho_)*pow(Va,2.0)*wing_.S*(CZ_a + (CZ_q_a*wing_.c*q)/(2.0*Va) + CZ_deltaE_a * delta_.e);
+    if (std::isfinite(forces_.Fz))
+    {
+    }
+    else
+    {
+      forces_.Fz = 0.01;
+    }
+//     gzmsg << "Va: " << Va << " Beta: " << beta << " P: " << p << " r: " << r << "\n";
 
     forces_.l = 0.5*(rho_)*pow(Va,2.0)*wing_.S*wing_.b*(Cell_.O + Cell_.beta*beta + (Cell_.p*wing_.b*p)/(2.0*Va) + (Cell_.r*wing_.b*r)/(2.0*Va) + Cell_.delta_a*delta_.a + Cell_.delta_r*delta_.r) - prop_.k_T_P*pow((prop_.k_Omega*delta_.t),2.0);
     forces_.m = 0.5*(rho_)*pow(Va,2.0)*wing_.S*wing_.c*(Cm_.O + Cm_.alpha*alpha + (Cm_.q*wing_.c*q)/(2.0*Va) + Cm_.delta_e*delta_.e);
     forces_.n = 0.5*(rho_)*pow(Va,2.0)*wing_.S*wing_.b*(Cn_.O + Cn_.beta*beta + (Cn_.p*wing_.b*p)/(2.0*Va) + (Cn_.r*wing_.b*r)/(2.0*Va) + Cn_.delta_a*delta_.a + Cn_.delta_r*delta_.r);
+//     gzmsg << "Forces Fx, Fy, Fz: " << forces_.Fx << " " << forces_.Fy << " " << forces_.Fz << "\n";
+//    gzmsg << "Va: " << Va << "\n";
   }
 }
 
